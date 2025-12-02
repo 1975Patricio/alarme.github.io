@@ -1,0 +1,30 @@
+// service-worker.js
+
+// Ouve o evento de clique na notificação no Android
+self.addEventListener('notificationclick', function(event) {
+  event.notification.close(); // Fecha a notificação após o clique
+
+  // Abre a janela do cliente (a sua página HTML) quando o utilizador clica
+  event.waitUntil(
+    clients.matchAll({ type: 'window' }).then(clientList => {
+      for (const client of clientList) {
+        if (client.url.includes('despertador.html') && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      // Se a página não estiver aberta, abre uma nova janela
+      if (clients.openWindow) {
+        return clients.openWindow('./despertador.html');
+      }
+    })
+  );
+});
+
+// Funções básicas de instalação e fetch para compatibilidade PWA mínima
+self.addEventListener('install', (event) => {
+    console.log('Service Worker instalado');
+});
+
+self.addEventListener('fetch', (event) => {
+    // Pode adicionar lógica de cache aqui se quiser que a PWA funcione offline
+});
