@@ -28,3 +28,4 @@ self.addEventListener('install', (event) => {
 self.addEventListener('fetch', (event) => {
     // Pode adicionar lógica de cache aqui se quiser que a PWA funcione offline
 });
+
