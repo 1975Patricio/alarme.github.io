@@ -4,47 +4,40 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Despertador PWA</title>
-<link rel="manifest" href="data:application/json,{
-  &quot;name&quot;:&quot;Despertador PWA&quot;,
-  &quot;short_name&quot;:&quot;Despertador&quot;,
-  &quot;start_url&quot;:&quot;.&quot;,
-  &quot;display&quot;:&quot;standalone&quot;,
-  &quot;background_color&quot;:&quot;#ffffff&quot;,
-  &quot;theme_color&quot;:&quot;#4CAF50&quot;
-}">
 <style>
 body{display:flex;justify-content:center;align-items:center;height:100vh;margin:0;background:#f0f0f0;font-family:sans-serif}
 .wrapper{background:white;padding:20px;border-radius:10px;width:300px;text-align:center;box-shadow:0 4px 8px rgba(0,0,0,.2)}
-.display{font-size:3rem}
+.display{font-size:3rem;margin-bottom:10px}
 button,input{width:100%;padding:10px;margin:5px 0}
 .alarmItem{background:#ddd;margin-top:5px;padding:5px;display:flex;justify-content:space-between}
 </style>
 </head>
 <body>
+
 <div class="wrapper">
-<h2>Despertador</h2>
-<button onclick="requestNotificationPermission()">Ativar Notificações</button>
-<div class="display" id="clock"></div>
-<input type="time" id="alarmTime">
-<button onclick="addAlarm()">Adicionar Alarme</button>
-<ul id="alarmList"></ul>
-<button onclick="stopAllAlarms()">Parar</button>
+  <h2>Despertador</h2>
+  <button onclick="requestNotificationPermission()">Ativar Notificações</button>
+  <div class="display" id="clock"></div>
+  <input type="time" id="alarmTime">
+  <button onclick="addAlarm()">Adicionar Alarme</button>
+  <ul id="alarmList"></ul>
+  <button onclick="stopAllAlarms()">Parar</button>
 </div>
 
 <script>
-/* --- SERVICE WORKER --- */
+/* -------- SERVICE WORKER -------- */
 if ('serviceWorker' in navigator) {
   const swCode = `
     self.addEventListener('install', e => self.skipWaiting());
     self.addEventListener('fetch', e => e.respondWith(fetch(e.request)));
-    self.addEventListener('notificationclick', e => { e.notification.close(); });
+    self.addEventListener('notificationclick', e => e.notification.close());
   `;
   const blob = new Blob([swCode], {type:'text/javascript'});
   const swURL = URL.createObjectURL(blob);
-  navigator.serviceWorker.register(swURL);
+  navigator.serviceWorker.register(swURL).then(()=>console.log('SW registrado'));
 }
 
-/* --- VARIÁVEIS --- */
+/* -------- VARIÁVEIS -------- */
 const clockDisplay = document.getElementById('clock');
 const alarmInput = document.getElementById('alarmTime');
 const alarmList = document.getElementById('alarmList');
@@ -52,85 +45,86 @@ let alarms = JSON.parse(localStorage.getItem('alarms')||'[]');
 let ringing = false;
 let intervalColor;
 
-/* --- NOTIFICAÇÃO --- */
-function requestNotificationPermission() {
-  Notification.requestPermission();
+/* -------- NOTIFICAÇÃO -------- */
+async function requestNotificationPermission(){
+  const perm = await Notification.requestPermission();
+  console.log('Permissão:', perm);
 }
 
-function sendNotification(time) {
-  if (Notification.permission === 'granted') {
-    navigator.serviceWorker.ready.then(reg => {
-      reg.showNotification('Alarme!', { body: 'Hora: ' + time, vibrate: [200,100,200] });
+function sendNotification(time){
+  if(Notification.permission==='granted'){
+    navigator.serviceWorker.ready.then(reg=>{
+      reg.showNotification('Alarme!', {body:'Hora: '+time, vibrate:[200,100,200]});
     });
   }
 }
 
-/* --- RELÓGIO --- */
-function updateTime() {
+/* -------- RELÓGIO -------- */
+function updateTime(){
   const now = new Date();
-  const h = now.getHours().toString().padStart(2,'0');
-  const m = now.getMinutes().toString().padStart(2,'0');
-  const s = now.getSeconds().toString().padStart(2,'0');
-  clockDisplay.textContent = `${h}:${m}:${s}`;
-  checkAlarms(now.getHours(), now.getMinutes());
+  const h = now.getHours();
+  const m = now.getMinutes();
+  const s = now.getSeconds();
+  clockDisplay.textContent = `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+  checkAlarms(h, m);
 }
+setInterval(updateTime, 1000);
+updateTime();
 
-/* --- ALARMES --- */
-function addAlarm() {
+/* -------- ALARMES -------- */
+function addAlarm(){
   const time = alarmInput.value;
   if(!time) return;
-  alarms.push({ id: Date.now(), time, triggered: false });
+  alarms.push({id:Date.now(),time,triggered:false});
   localStorage.setItem('alarms', JSON.stringify(alarms));
-  alarmInput.value = '';
+  alarmInput.value='';
   renderAlarms();
 }
 
-function deleteAlarm(id) {
-  alarms = alarms.filter(a => a.id !== id);
+function deleteAlarm(id){
+  alarms = alarms.filter(a=>a.id!==id);
   localStorage.setItem('alarms', JSON.stringify(alarms));
   renderAlarms();
 }
 
-function checkAlarms(hour, minute) {
-  alarms.forEach(a => {
+/* -------- CHECAR ALARMES -------- */
+function checkAlarms(hour, minute){
+  alarms.forEach(a=>{
     const [ah, am] = a.time.split(':').map(Number);
-    if(ah === hour && am === minute && !a.triggered && !ringing) {
+    if(!a.triggered && ah===hour && am===minute){
       triggerAlarm(a);
     }
   });
 }
 
-function triggerAlarm(alarm) {
-  ringing = true;
-  alarm.triggered = true;
+function triggerAlarm(alarm){
+  ringing=true;
+  alarm.triggered=true;
   localStorage.setItem('alarms', JSON.stringify(alarms));
   sendNotification(alarm.time);
-  intervalColor = setInterval(() => document.body.style.background =
-    `hsl(${Math.random()*360},100%,60%)`, 150);
+  intervalColor=setInterval(()=>document.body.style.background=`hsl(${Math.random()*360},100%,60%)`,150);
 }
 
-/* --- PARAR --- */
-function stopAllAlarms() {
-  ringing = false;
+function stopAllAlarms(){
+  ringing=false;
   clearInterval(intervalColor);
-  document.body.style.background = '#f0f0f0';
+  document.body.style.background='#f0f0f0';
 }
 
-/* --- RENDER LISTA --- */
-function renderAlarms() {
-  alarmList.innerHTML = '';
-  alarms.forEach(a => {
-    const li = document.createElement('li');
-    li.className = 'alarmItem';
-    li.innerHTML = `${a.time} <button onclick="deleteAlarm(${a.id})">X</button>`;
+/* -------- RENDER ALARMES -------- */
+function renderAlarms(){
+  alarmList.innerHTML='';
+  alarms.forEach(a=>{
+    const li=document.createElement('li');
+    li.className='alarmItem';
+    li.innerHTML=`${a.time} <button onclick="deleteAlarm(${a.id})">X</button>`;
     alarmList.appendChild(li);
   });
 }
 
-/* --- INICIO --- */
+/* -------- INICIO -------- */
 renderAlarms();
-setInterval(updateTime, 1000);
-updateTime();
 </script>
+
 </body>
 </html>
